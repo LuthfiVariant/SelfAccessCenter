@@ -1,0 +1,12 @@
+{% extends 'layout.html' %}
+
+{% block body %}
+    
+    <h1>Judul Skripsi</h1>
+    <ul class="list-group">
+        {% for skripsi in dataSkripsi %}
+        <li class="list-group-item"><a href='skripsi/{{skripsi.id}}'>{{skripsi.judul}}</a></li>
+        {% endfor %}
+    </ul>
+
+{% endblock %}
