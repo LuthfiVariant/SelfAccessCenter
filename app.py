@@ -1,5 +1,6 @@
-from email import kirim_email
-from token import generate_confirmation_token, confirm_token
+import mytoken
+import socketserver
+from flask_mail import Message, Mail
 from flask import Flask, render_template, url_for, redirect, session, logging, request, flash
 from flask_mysqldb import MySQL
 from wtforms import Form, StringField, TextAreaField, PasswordField, FileField, IntegerField, validators
@@ -8,6 +9,8 @@ from passlib.hash import sha256_crypt
 
 
 app = Flask(__name__)
+
+
 
 app.config['SECRET_KEY'] = 'tenshichanmajitenshi'
 app.config['SECURITY_PASSWORD_SALT'] = 'lifestream'
@@ -22,6 +25,11 @@ app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 
 app.config['MAIL_DEFAULT_SENDER'] = 'noreply@selfaccesscenter'
+
+#init mail
+
+mail = Mail(app)
+mail.init_app(app)
 
 #config MySQL
 
@@ -42,7 +50,7 @@ class FormulirPendaftaran(Form):
         ])
     nim = IntegerField(u'NIM', [validators.DataRequired()])
     email = StringField('Email', [
-        validators.Regexp('.*@student.upi.edu', message="Hanya bisa menggunakan email @student.upi.edu"), 
+        
         validators.DataRequired()
         ])
     password = PasswordField('Password', [
@@ -51,6 +59,14 @@ class FormulirPendaftaran(Form):
         validators.DataRequired()])
     confirm = PasswordField('Confirm Password', [validators.DataRequired()])
 
+def kirim_email(to, subject, template):
+    message = Message(
+        subject,
+        recipients=[to],
+        html=template,
+        sender=app.config['MAIL_DEFAULT_SENDER']
+    )
+    mail.send(message)
 
 @app.route('/')
 def index():
@@ -75,6 +91,15 @@ def daftar():
         password = sha256_crypt.encrypt(str(form.password.data))
         verifikasi = False
 
+        #create token
+
+        token = mytoken.generate_confirmation_token(email)
+        confirm_url = url_for('konfirmasi', token=token, _external=True)
+
+        html = render_template('aktivasi.html', confirm_url=confirm_url)
+        subject = "Konfirmasi akun Layanan Unggah Mandiri Self Access Center Bahasa dan Sastra Inggris UPI"
+        kirim_email(email, subject, html)
+
         #create cursor
 
         cur = mysql.connection.cursor()
@@ -84,14 +109,6 @@ def daftar():
         #comit to DB
 
         mysql.connection.commit()
-
-        #create token
-
-        token = generate_confirmation_token(email)
-        confirm_url = url_for('konfirmasi', token=token, _external=True)
-        html = render_template('activate.html', confirm_url=confirm_url)
-        subject = "Konfirmasi akun Layanan Unggah Mandiri Self Access Center Bahasa dan Sastra Inggris UPI"
-        kirim_email(email, subject, html)
 
         #close connection
 
@@ -105,7 +122,7 @@ def daftar():
 @app.route('/konfirmasi/<token>')
 def konfirmasi(token):
     try:
-        email = confirm_token(token)
+        email = mytoken.confirm_token(token)
     except:
         flash('Link sudah kadaluarsa', 'danger')
         redirect(url_for('index'))
@@ -113,7 +130,7 @@ def konfirmasi(token):
     #query akun untuk mencari user
     cur = mysql.connection.cursor()
 
-    cur.execute('SELECT verifikasi FROM akun WHERE email like %s', (email))
+    cur.execute('SELECT verifikasi FROM akun WHERE email like %s', (email,))
 
     verifikasi = cur.fetchone()
 
@@ -122,13 +139,65 @@ def konfirmasi(token):
         flash('Akun ini sudah terkonfirmasi. Silahkan Masuk.', 'success')
         redirect(url_for('index'))
     else:
-        cur.execute('UPDATE akun SET verifikasi = true WHERE email=%s', (email))
+        cur.execute('UPDATE akun SET verifikasi = true WHERE email=%s', (email,))
 
         mysql.connection.commit()
 
         cur.close()
         flash('Akun anda berhasil dikonfirmasi. Silahkan Login', 'success')
     return redirect(url_for('index'))
+
+@app.route('/masuk', methods=['POST', 'GET'])
+def masuk():
+    if request.method == 'POST':
+        #ambil form field
+        nim = request.form['nim']
+        password_candidate = request.form['password']
+
+        #buat cursor
+
+        cur = mysql.connection.cursor()
+
+        #cari berdasarkan nim
+
+        hasil = cur.execute('SELECT * FROM akun WHERE nim = %s', [nim])
+
+        if hasil > 0:
+            #ambil hash
+            data = cur.fetchone()
+            password = data['password']
+            verifikasi = data['verifikasi']
+            nama = data['nama']
+
+            #bandingkan password dan verifikasi
+
+            if sha256_crypt.verify(password_candidate, password) and verifikasi == False:
+                error = 'Verifikasi terlebih dahulu akun anda.'
+                return render_template('masuk.html', error=error)
+
+            if sha256_crypt.verify(password_candidate, password) and verifikasi == True:
+                #sukses login
+                session['masuk'] = True
+                session['nama'] = nama
+
+                flash('Anda sudah masuk.', 'success')
+                return redirect(url_for('dasbor'))
+
+            else:
+                error = 'Password atau NIM anda salah'
+                return render_template('masuk.html', error=error)
+
+            #tutup query SQL
+            cur.close()
+
+        else:
+            error = 'Data anda tidak ditemukan'
+            return render_template('masuk.html', error=error)
+    return render_template('masuk.html')
+
+@app.route('/dasbor')
+def dasbor():
+    return render_template('dasbor.html')
 
 if __name__ == '__main__':
     app.run(debug=True)
