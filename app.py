@@ -1,10 +1,14 @@
 import mytoken
 import socketserver
+import base64
 from flask_mail import Message, Mail
 from flask import Flask, render_template, url_for, redirect, session, logging, request, flash
 from flask_mysqldb import MySQL
 from wtforms import Form, StringField, TextAreaField, PasswordField, FileField, IntegerField, validators
 from passlib.hash import sha256_crypt
+from functools import wraps
+from io import BytesIO
+from werkzeug.utils import secure_filename
 
 
 
@@ -31,6 +35,15 @@ app.config['MAIL_DEFAULT_SENDER'] = 'noreply@selfaccesscenter'
 mail = Mail(app)
 mail.init_app(app)
 
+def kirim_email(to, subject, template):
+    message = Message(
+        subject,
+        recipients=[to],
+        html=template,
+        sender=app.config['MAIL_DEFAULT_SENDER']
+    )
+    mail.send(message)
+
 #config MySQL
 
 app.config['MYSQL_HOST'] = 'localhost'
@@ -43,6 +56,8 @@ app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 
 mysql = MySQL(app)
 
+#formulir
+
 class FormulirPendaftaran(Form):
     nama = StringField('Nama', [
         validators.Length(min=1, max=50),
@@ -50,7 +65,7 @@ class FormulirPendaftaran(Form):
         ])
     nim = IntegerField(u'NIM', [validators.DataRequired()])
     email = StringField('Email', [
-        
+        validators.Regexp('.@student.upi.edu', message='Harap gunakan email @student.upi.edu'),
         validators.DataRequired()
         ])
     password = PasswordField('Password', [
@@ -59,14 +74,46 @@ class FormulirPendaftaran(Form):
         validators.DataRequired()])
     confirm = PasswordField('Confirm Password', [validators.DataRequired()])
 
-def kirim_email(to, subject, template):
-    message = Message(
-        subject,
-        recipients=[to],
-        html=template,
-        sender=app.config['MAIL_DEFAULT_SENDER']
-    )
-    mail.send(message)
+class FormulirSkripsi(Form):
+    judul = StringField('Judul', [
+        validators.Length(min=20, max=255, message='Panjang judul hanya bisa 20-255 karakter'),
+        validators.DataRequired()
+    ])
+    tahun = IntegerField('Tahun', [
+        validators.DataRequired()
+    ])
+    abstrak = TextAreaField('Abstrak', [
+    validators.length(min=100, message="Abstrak hanya bisa 100-300 kata"),
+    validators.DataRequired()
+    ])
+    berkas = FileField('Dokumen Skripsi', [
+        validators.DataRequired()
+    ])
+
+#ubah file menjadi data binary
+
+def encode(data: bytes):
+    return base64.b64encode(data)
+
+def ubahKeDataBinary(berkas):
+    with open(berkas, 'rb') as file:
+        encode(file)
+    
+
+#decorator
+def telah_masuk(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        if 'masuk' in session:
+            return f(*args, **kwargs)
+        else:
+            flash('Harap masuk terlebih dahulu', 'danger')
+            return redirect(url_for('masuk'))
+    return wrap
+
+
+
+#app route
 
 @app.route('/')
 def index():
@@ -195,9 +242,47 @@ def masuk():
             return render_template('masuk.html', error=error)
     return render_template('masuk.html')
 
+@app.route('/keluar')
+@telah_masuk
+def keluar():
+    session.clear()
+    flash('Anda telah keluar.', 'success')
+    return redirect(url_for('masuk'))
+
 @app.route('/dasbor')
+@telah_masuk
 def dasbor():
     return render_template('dasbor.html')
+
+@app.route('/tambah_skripsi', methods=['GET', 'POST'])
+@telah_masuk
+def tambah_skripsi():
+    form = FormulirSkripsi(request.form)
+    if request.method == 'POST' and form.validate():
+        judul = form.judul.data
+        tahun = form.tahun.data
+        abstrak = form.abstrak.data
+        berkas = form.berkas.data
+
+        #ubah data berkas menjadi blob
+        bytes
+        file_pdf = ubahKeDataBinary(berkas)
+
+        #buat cursor
+
+        cur = mysql.connection.cursor()
+
+        #masukkan ke dalam database
+        cur.execute('INSERT INTO skripsi(judul, penulis, tahun, abstrak, berkas) VALUES(%s, %s, %s, %s, %s)', [judul, session['nama'], tahun, abstrak, file_pdf])
+
+        mysql.connection.commit()
+
+        cur.close()
+
+        flash('Skripsi anda telah berhasil ditambahkan ke dalam database', 'success')
+
+        redirect(url_for('dasbor'))
+    return render_template('tambahskripsi.html', form=form)
 
 if __name__ == '__main__':
     app.run(debug=True)

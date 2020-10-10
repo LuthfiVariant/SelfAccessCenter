@@ -1,9 +1,21 @@
-<nav class="navbar sticky-top bg-dark navbar-dark">
+<nav class="navbar navbar-expand-md navbar-dark bg-dark">
+    
+  <div class="container">
     <a class="navbar-brand" href="/">Self Access Center</a>
-        
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
 
-    <a href="/masuk"><button class="btn btn-success">Masuk</button></a>
 
 
-
-</nav>
+      <ul class="nav navbar-nav navbar-right">
+          {% if session.masuk %}
+          <li><a class="nav-link" href="/keluar"><button class='btn btn-danger'>Logout</button></a></li>
+          {% else %}
+          <li><a class="nav-link" href="/masuk"><button class='btn btn-success'>Login</button></a></li>
+          {% endif %}
+       
+      </ul>
+    </div>
+    
+  </nav>
