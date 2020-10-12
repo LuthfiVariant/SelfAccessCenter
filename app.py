@@ -1,16 +1,18 @@
 import mytoken
 import socketserver
 import base64
+import os
+from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileRequired, FileAllowed
 from flask_mail import Message, Mail
 from flask import Flask, render_template, url_for, redirect, session, logging, request, flash
+from flask_uploads import DOCUMENTS, UploadSet, uploaded_file
 from flask_mysqldb import MySQL
-from wtforms import Form, StringField, TextAreaField, PasswordField, FileField, IntegerField, validators
+from wtforms import Form, StringField, TextAreaField, PasswordField, FileField, IntegerField, SubmitField, MultipleFileField, validators
 from passlib.hash import sha256_crypt
 from functools import wraps
 from io import BytesIO
 from werkzeug.utils import secure_filename
-
-
 
 app = Flask(__name__)
 
@@ -18,6 +20,24 @@ app = Flask(__name__)
 
 app.config['SECRET_KEY'] = 'tenshichanmajitenshi'
 app.config['SECURITY_PASSWORD_SALT'] = 'lifestream'
+
+#flask Upload
+ALLOWED_EXTENSIONS = set(['pdf', 'docx'])
+app.config['UPLOAD_FOLDER'] = "E:\\Programming\\SelfAccessCenter\\skripsi"
+
+def allowed_file(filename):
+    return '.' in filename and \
+        filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
+
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
+
+#ubah file menjadi data binary
+
+def convertToBinaryData(dokumen):
+    with open(dokumen, 'rb') as file:
+        dataBinary = file.read()
+    return dataBinary
+
 
 #config email
 
@@ -29,6 +49,7 @@ app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 
 app.config['MAIL_DEFAULT_SENDER'] = 'noreply@selfaccesscenter'
+
 
 #init mail
 
@@ -74,7 +95,7 @@ class FormulirPendaftaran(Form):
         validators.DataRequired()])
     confirm = PasswordField('Confirm Password', [validators.DataRequired()])
 
-class FormulirSkripsi(Form):
+class FormulirSkripsi(FlaskForm):
     judul = StringField('Judul', [
         validators.Length(min=20, max=255, message='Panjang judul hanya bisa 20-255 karakter'),
         validators.DataRequired()
@@ -86,19 +107,9 @@ class FormulirSkripsi(Form):
     validators.length(min=100, message="Abstrak hanya bisa 100-300 kata"),
     validators.DataRequired()
     ])
-    berkas = FileField('Dokumen Skripsi', [
-        validators.DataRequired()
-    ])
+    berkas = FileField('Dokumen Skripsi')
+    simpan = SubmitField('Simpan')
 
-#ubah file menjadi data binary
-
-def encode(data: bytes):
-    return base64.b64encode(data)
-
-def ubahKeDataBinary(berkas):
-    with open(berkas, 'rb') as file:
-        encode(file)
-    
 
 #decorator
 def telah_masuk(f):
@@ -110,7 +121,6 @@ def telah_masuk(f):
             flash('Harap masuk terlebih dahulu', 'danger')
             return redirect(url_for('masuk'))
     return wrap
-
 
 
 #app route
@@ -257,32 +267,42 @@ def dasbor():
 @app.route('/tambah_skripsi', methods=['GET', 'POST'])
 @telah_masuk
 def tambah_skripsi():
-    form = FormulirSkripsi(request.form)
+    form = FormulirSkripsi()
+
+    cur = mysql.connection.cursor()
+
     if request.method == 'POST' and form.validate():
-        judul = form.judul.data
-        tahun = form.tahun.data
-        abstrak = form.abstrak.data
-        berkas = form.berkas.data
+        try:
+            judul   = form.judul.data
+            tahun   = form.tahun.data
+            abstrak = form.abstrak.data
+            berkas  = form.berkas.data
 
-        #ubah data berkas menjadi blob
-        bytes
-        file_pdf = ubahKeDataBinary(berkas)
+            
 
-        #buat cursor
+            #upload file ke folder skripsi
+            filename = secure_filename(judul + '.pdf')
+            berkas.save(os.path.join('skripsi/' + filename))
 
-        cur = mysql.connection.cursor()
+            dokumen = convertToBinaryData('skripsi/' + filename)
 
-        #masukkan ke dalam database
-        cur.execute('INSERT INTO skripsi(judul, penulis, tahun, abstrak, berkas) VALUES(%s, %s, %s, %s, %s)', [judul, session['nama'], tahun, abstrak, file_pdf])
+            os.remove('skripsi/' + filename)
 
-        mysql.connection.commit()
+            #upload ke database
+            cur.execute('INSERT INTO skripsi (judul, penulis, tahun, abstrak, berkas) VALUES(%s, %s, %s, %s, %s)', [judul, session['nama'], tahun, abstrak, dokumen])
 
-        cur.close()
+            mysql.connection.commit()
 
-        flash('Skripsi anda telah berhasil ditambahkan ke dalam database', 'success')
+            cur.close()
 
-        redirect(url_for('dasbor'))
+            flash('Skripsi anda telah berhasil ditambahkan ke dalam database', 'success')
+
+            return redirect(url_for('dasbor'))
+        except:
+            flash('Terjadi error saat memasukkan data ke database.', 'danger')
     return render_template('tambahskripsi.html', form=form)
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)

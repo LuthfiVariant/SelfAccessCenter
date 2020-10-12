@@ -5,22 +5,22 @@
     
     {% from 'includes/_formhelpers.html' import render_field %}
 
-    <form method="POST" action="">
+    <form method='POST' enctype='multipart/form-data' action="">
         <div class="form-group">
-            {{render_field(form.judul, class_="form-control")}}
+            {{render_field(form.judul , class_="form-control")}}
         </div>
         <div class="form-group">
-            {{render_field(form.tahun, class_="form-control")}}
+            {{render_field(form.tahun , class_="form-control")}}
         </div>
         <div class="form-group">
-            {{render_field(form.abstrak, class_="form-control")}}
+            {{render_field(form.abstrak , class_="form-control")}}
         </div>
         <div class="form-group">
-            {{render_field(form.berkas, class_="form-control")}}
+            {{ form.hidden_tag() }}
+            {{render_field(form.berkas)}}
         </div>
-        <p><input type="submit" value="Submit" class="btn btn-primary"></p>
+            {{render_field(form.simpan , class_='btn btn-primary')}}
     </form>
 
-    
 
 {% endblock %}
