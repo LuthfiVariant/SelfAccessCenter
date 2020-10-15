@@ -122,7 +122,6 @@ def telah_masuk(f):
             return redirect(url_for('masuk'))
     return wrap
 
-
 #app route
 
 @app.route('/')
@@ -132,10 +131,6 @@ def index():
 @app.route('/dataskripsi')
 def dataSkripsi():
     return render_template('dataskripsi.html', dataSkripsi = skripsi)
-
-@app.route('/skripsi/<string:id>')
-def skripsi(id):
-    return render_template('skripsi.html', id = id)
 
 @app.route('/daftar', methods=['POST', 'GET'])
 def daftar():
@@ -262,7 +257,19 @@ def keluar():
 @app.route('/dasbor')
 @telah_masuk
 def dasbor():
-    return render_template('dasbor.html')
+        cur = mysql.connection.cursor()
+
+        hasil = cur.execute('SELECT * FROM skripsi WHERE penulis LIKE %s', [session['nama']])
+
+        data = cur.fetchall()
+
+        if hasil > 0:
+            return render_template('dasbor.html', data=data)
+        else:
+            flash('Anda belum mengupload apapun', 'danger')
+        return render_template('dasbor.html')
+        cur.close()
+    
 
 @app.route('/tambah_skripsi', methods=['GET', 'POST'])
 @telah_masuk
@@ -277,8 +284,6 @@ def tambah_skripsi():
             tahun   = form.tahun.data
             abstrak = form.abstrak.data
             berkas  = form.berkas.data
-
-            
 
             #upload file ke folder skripsi
             filename = secure_filename(judul + '.pdf')
@@ -302,7 +307,94 @@ def tambah_skripsi():
             flash('Terjadi error saat memasukkan data ke database.', 'danger')
     return render_template('tambahskripsi.html', form=form)
 
+@app.route('/edit_skripsi/<string:id>/', methods=['GET', 'POST'])
+@telah_masuk
+def edit_skripsi(id):
 
+    cur = mysql.connection.cursor()
+
+    cur.execute('SELECT * FROM skripsi WHERE id = %s', [id])
+
+    skripsi = cur.fetchone()
+        
+    cur.close()
+
+    form = FormulirSkripsi()
+
+    form.judul.data = skripsi['judul']
+    form.tahun.data = skripsi['tahun']
+    form.abstrak.data = skripsi['abstrak']
+    form.berkas.data = skripsi['berkas']
+
+    if skripsi['penulis'] != session['nama']:
+        flash('Anda bukan pemilik dokumen ini.', 'danger')
+        return render_template('dasbor.html')
+    else:
+        if request.method == 'POST' and form.validate():
+            
+            judul   = request.form['judul']
+            tahun   = request.form['tahun']
+            abstrak = request.form['abstrak']
+                
+            cur = mysql.connection.cursor()
+                
+            #upload ke database
+            cur.execute('UPDATE skripsi SET judul=%s, tahun=%s, abstrak=%s WHERE id = %s', [judul, tahun, abstrak, id])
+
+            mysql.connection.commit()
+
+            cur.close()
+
+            flash('Anda telah berhasil mengedit skripsi anda.', 'success')
+
+            return redirect(url_for('dasbor'))
+    return render_template('editskripsi.html', form=form)
+
+@app.route('/cari_skripsi', methods=['GET', 'POST'])
+@telah_masuk
+def cari_skripsi():
+
+    cur = mysql.connection.cursor()
+
+    if request.method == 'POST':
+
+        skripsi = request.form['skripsi']
+
+        hasil = cur.execute('SELECT * FROM skripsi where judul like %s or penulis like %s', ['%' + skripsi + '%', '%' + skripsi + '%'])
+
+        data = cur.fetchall()
+
+        if hasil > 0:
+            return render_template('cariskripsi.html', data=data)
+        else:
+            flash('Pencarian tidak menghasilkan apapun. Periksa lagi judul atau penulis yang dicari', 'danger')
+    return render_template('cariskripsi.html')
+
+@app.route('/skripsi/<string:id>/')
+@telah_masuk
+def skripsi(id):
+
+    cur = mysql.connection.cursor()
+
+    hasil = cur.execute('SELECT * FROM skripsi WHERE id = %s', [id])
+
+    skripsi = cur.fetchone()
+
+    return render_template('skripsi.html', skripsi=skripsi )
+
+@app.route('/hapus_skripsi/<string:id>', methods=['POST'])
+@telah_masuk
+def hapus_skripsi(id):
+    cur = mysql.connection.cursor()
+
+    cur.execute('DELETE FROM skripsi WHERE id = %s', [id])
+
+    mysql.connection.commit()
+
+    cur.close()
+
+    flash('Skripsi berhasil dihapus', 'success')
+    return redirect(url_for('dasbor'))
 
 if __name__ == '__main__':
     app.run(debug=True)

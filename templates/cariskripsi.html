@@ -1,0 +1,22 @@
+{% extends 'layout.html' %}
+
+{% block body %}
+    <h1>Cari Skripsi</h1>
+    
+    <div class ="form-group">
+        <form method="POST" action="" class="form-inline">
+            <input class="form-control form-control-borderless" type="search" placeholder="Cari Skripsi" name='skripsi'>
+            <button class="btn btn-outline-success" type="submit">Search</button>
+        </form>
+    </div>
+
+    <ul class="list-group">
+        {% for skripsi in data %}
+            <li class="list-group-item"><a href="skripsi/{{skripsi.id}}">{{skripsi.judul}}</a>
+                <br>
+                <small>ditulis oleh {{skripsi.penulis}}</small></li>
+        {% endfor %}
+    </ul>
+
+
+{% endblock %}

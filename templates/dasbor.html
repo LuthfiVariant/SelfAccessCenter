@@ -3,13 +3,47 @@
 {% block body %}
 
     <h1>Dashboard<small> Selamat datang, {{session.nama}}</small></h1>
+
+    <br>
+
     <div class='container'>
 
 
         <a class='btn btn-success' href='/tambah_skripsi'>Tambah Skripsi</a>
-        <a class='btn btn-primary' href='/'>Cari Skripsi</a>
+        <a class='btn btn-primary' href='/cari_skripsi'>Cari Skripsi</a>
 
     </div>
+
+    <br>
+
+    <h2>Skripsi Anda</h2>
+
+    <table class='table table-striped'>
+        <tr>
+            <th>ID</th>
+            <th>Judul</th>
+            <th>Tahun</th>
+            <th>Penulis</th>
+            <th></th>
+            <th></th>
+        </tr>
+        {% for skripsi in data %}
+        <tr>
+            <td>{{skripsi.id}}</td>
+            <td>{{skripsi.judul}}</td>
+            <td>{{skripsi.tahun}}</td>
+            <td>{{skripsi.penuls}}</td>
+            <td><a href='edit_skripsi/{{skripsi.id}}' class='btn btn-default pullright'>Edit</a></td>
+            <td>
+                <form action={{url_for('hapus_skripsi', id=skripsi.id)}} method='POST'>
+                    <input type="hidden" name="_method" value='Delete'>
+                    <input type='submit' value='Delete' class='btn btn-danger'>
+                </form>
+            </td>
+
+        </tr>
+        {% endfor %}
+    </table>
     
 
 {% endblock %}

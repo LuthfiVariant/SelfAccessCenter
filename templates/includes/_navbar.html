@@ -10,9 +10,10 @@
 
       <ul class="nav navbar-nav navbar-right">
           {% if session.masuk %}
-          <li><a class="nav-link" href="/keluar"><button class='btn btn-danger'>Logout</button></a></li>
+          <li><a class="nav-link" href="/dasbor"><button class='btn btn-primary'>Dasbor</button></a></li>
+          <li><a class="nav-link" href="/keluar"><button class='btn btn-danger'>Keluar</button></a></li>
           {% else %}
-          <li><a class="nav-link" href="/masuk"><button class='btn btn-success'>Login</button></a></li>
+          <li><a class="nav-link" href="/masuk"><button class='btn btn-success'>Masuk</button></a></li>
           {% endif %}
        
       </ul>

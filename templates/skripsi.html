@@ -3,5 +3,9 @@
 {% block body %}
     
     <h1>{{skripsi.judul}}</h1>
-
+    <small>ditulis oleh {{skripsi.penulis}}</small>
+    <hr>
+    <div>
+        {{skripsi.abstrak | safe}}
+    </div>
 {% endblock %}
