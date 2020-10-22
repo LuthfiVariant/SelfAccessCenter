@@ -44,7 +44,7 @@ def convertToBinaryData(dokumen):
 app.config['MAIL_SERVER']='smtp.gmail.com'
 app.config['MAIL_PORT'] = 465
 app.config['MAIL_USERNAME'] = 'lutfhivarianthanif@gmail.com'
-app.config['MAIL_PASSWORD'] = 'tenshichanmajitenshi'
+app.config['MAIL_PASSWORD'] = '' #masukkan password gmail anda disini
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 
@@ -69,7 +69,7 @@ def kirim_email(to, subject, template):
 
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'kanaderu'
+app.config['MYSQL_PASSWORD'] = '' #masukkan password database anda disini
 app.config['MYSQL_DB'] = 'sac'
 app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 
